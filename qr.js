@@ -1,13 +1,14 @@
 var clients = [],
-	http = require('http'), 
-	url = require('url'), 
-	fs = require('fs'), 
+	http = require('http'),
+	url = require('url'),
+	fs = require('fs'),
 	querystring = require('querystring'),
-	qrcode = require('qrcode'), 
-	UUID = require('uuid-js'), 
-	sha1 = require('sha1'), 
-	redis = require('redis'), 
-	redisClient = redis.createClient(), 
+	qrcode = require('qrcode'),
+    qr = require('qr-image'),
+	UUID = require('uuid-js'),
+	sha1 = require('sha1'),
+	redis = require('redis'),
+	redisClient = redis.createClient(),
 	redisKey = 'QRCODE_LOGIN_TOKEN';
 
 function generateIndex(sessionID, req, res) {
@@ -20,14 +21,40 @@ function generateIndex(sessionID, req, res) {
 	});
 }
 
+function getLocalIP(){
+	var interfaces = require('os').networkInterfaces();
+    for (var devName in interfaces){
+        var iface = interfaces[devName];
+        for (var i=0; i<iface.length; i++){
+            var alias = iface[i];
+            if(alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal){
+                return alias.address;
+            }
+        }
+    }
+}
+
 function generateQRCode(sessionID, req, res) {
 	res.writeHead(200, {
 		'Content-Type' : 'image/png'
 	});
-	qrcode.draw(sessionID, function(err, canvas) {
-		res.end(canvas.toBuffer());
-	});
-} 
+	var ip = getLocalIP();
+	var url = 'http://' + ip + ':9999/scanned?token=cc2377b0335a49439fb1cd6ad25c4ffce0ba6360&sessionid=' + sessionID;
+	var img = qr.image(url);
+	img.pipe(res);
+
+    // qrcode.toCanvas(sessionID, function(err, canvas) {
+    //     var container = document.getElementById('qrcode')
+    //     container.appendChild(canvas)
+    //
+		// // res.end(canvas.toBuffer());
+    // });
+    //
+    // qrcode.toFile('./fuck.png',sessionID, function(err, canvas) {
+    //     // res.end(canvas.toBuffer());
+    // });
+
+}
 
 function handleScanned(res, token, sessionID) {
 	var success = false;
@@ -88,7 +115,7 @@ function handleConfirmed(res, token, sessionID) {
 				'Content-Type' : 'text/html; charset=UTF-8'
 			});
 			if (success) {
-				res.end('confirmed');
+				res.end('登录成功！！！');
 			} else {
 				res.end('error');
 			}
@@ -173,9 +200,9 @@ http.createServer(function(req, res) {
 		var token = objQuery.token;
 
 		if (typeof(sessionID) != 'undefined' && typeof(token) != 'undefined') {
-			handleConfirmed(res, token, sessionID); 
+			handleConfirmed(res, token, sessionID);
 
-			console.log('confirmed');
+			console.log('登录成功√');
 		} else {
 			console.log('no sessionID or no token');
 		}
@@ -185,5 +212,5 @@ http.createServer(function(req, res) {
 		});
 		res.end();
 	}
-}).listen(9999, '114.113.159.141');
-console.log('Running at port: 9999.');
+}).listen(9999);
+console.log('Running at port: http://%s:9999', getLocalIP());
